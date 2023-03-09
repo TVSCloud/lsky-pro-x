@@ -80,5 +80,5 @@ jobs:
 #          labels: |
 #            build_version=tvscloud version:- ${{github.event.inputs.tag}} Build-date:- ${{steps.date.outputs.date}}
           tags: |
-            tvscloud/lsky-pro-x:${{ github.event.inputs.tag }}
+#            tvscloud/lsky-pro-x:${{ github.event.inputs.tag }}
             tvscloud/lsky-pro-x:latest
