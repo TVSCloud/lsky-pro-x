@@ -8,7 +8,8 @@ RUN set -ex; \
     \
     apt-get update; \
     apt-get install imagemagick libmagickwand-dev -y --no-install-recommends; \
-    pecl install imagick redis; \
+    pecl install imagick; \
+    pecl install redis; \
     docker-php-ext-install bcmath; \
     docker-php-ext-install pdo_pgsql; \
     docker-php-ext-install pdo_mysql; \
