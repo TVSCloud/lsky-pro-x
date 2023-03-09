@@ -1,64 +1,80 @@
-FROM php:8.1-apache
-MAINTAINER TyRoyal
-RUN a2enmod rewrite
+name: docker-release
 
-RUN set -ex; \
-    \
-    savedAptMark="$(apt-mark showmanual)"; \
-    \
-    apt-get update; \
-    apt-get install imagemagick libmagickwand-dev -y --no-install-recommends; \
-    pecl install imagick redis; \
-    docker-php-ext-install bcmath; \
-    docker-php-ext-install pdo_pgsql; \
-    docker-php-ext-enable imagick; \
-    docker-php-ext-enable redis; \
-    apt-get clean; \
-    apt-mark auto '.*' > /dev/null; \
-    apt-mark manual $savedAptMark; \
-    ldd "$(php -r 'echo ini_get("extension_dir");')"/*.so \
-        | awk '/=>/ { print $3 }' \
-        | sort -u \
-        | xargs -r dpkg-query -S \
-        | cut -d: -f1 \
-        | sort -u \
-        | xargs -rt apt-mark manual; \
-    \
-    apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
-    rm -rf /var/lib/apt/lists/* ;\
-    rm -rf /var/cache/apt/* ;\
-    rm -rf /tmp/* ;
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Lsky-pro tag'
+        required: true
+  push:
+    branches: [ "master" ]
+    # Publish semver tags as releases.
+    tags: [ 'v*.*.*' ]
+  pull_request:
+    branches: [ "master" ]
+    
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2.3.3
+        with:
+          fetch-depth: '0'
 
-RUN { \
-    echo 'post_max_size = 100M;';\
-    echo 'upload_max_filesize = 100M;';\
-    echo 'max_execution_time = 600S;';\
-    } > /usr/local/etc/php/conf.d/docker-php-upload.ini; 
+      - name: Set hash
+        id: vars
+        run: |
+          sha=$(curl -sX GET \
+            "https://api.github.com/repos/lsky-org/lsky-pro/tags" \
+            | jq -r '.[]|(select(.name=="${{github.event.inputs.tag}}")).commit.sha')
+          echo "::set-output name=sha::${sha}"
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y-%m-%dT%H:%M:%S%:z')"
 
-RUN { \
-    echo 'opcache.enable=1'; \
-    echo 'opcache.interned_strings_buffer=8'; \
-    echo 'opcache.max_accelerated_files=10000'; \
-    echo 'opcache.memory_consumption=128'; \
-    echo 'opcache.save_comments=1'; \
-    echo 'opcache.revalidate_freq=1'; \
-    } > /usr/local/etc/php/conf.d/opcache-recommended.ini; \
-    \
-    echo 'apc.enable_cli=1' >> /usr/local/etc/php/conf.d/docker-php-ext-apcu.ini; \
-    \
-    echo 'memory_limit=512M' > /usr/local/etc/php/conf.d/memory-limit.ini; \
-    \
-    mkdir -p /var/www/data; \
-    chown -R www-data:root /var/www; \
-    chmod -R g=u /var/www
+      - name: create-json
+        id: create-json
+        uses: jsdaniell/create-json@1.1.2
+        with:
+          name: "version.json"
+          json: '{"type": "docker", "tag": "latest", "commit": "${{ steps.vars.outputs.sha }}", "date": "${{ steps.date.outputs.date }}"}'
+          dir: './'
 
-COPY ./ /var/www/lsky/
-COPY ./000-default.conf /etc/apache2/sites-enabled/
-COPY entrypoint.sh /
+      - name: setup platform emulator
+        uses: docker/setup-qemu-action@v1
 
-WORKDIR /var/www/html
-VOLUME /var/www/html
-EXPOSE 80
+      - name: setup multi-arch docker build
+        uses: docker/setup-buildx-action@v1
 
-ENTRYPOINT ["sh", "/entrypoint.sh"]
-CMD ["apachectl","-D","FOREGROUND"]
+      - name: Download and Unzip Upstream Source Code
+        run: |
+          curl -OL https://github.com/lsky-org/lsky-pro/archive/refs/heads/master.zip
+          unzip -o *.zip
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          
+      - name: Copy .env
+        run: php -r "file_exists('.env') || copy('.env.example', '.env');"
+      
+      - name: Clean file to reduce image size
+        run: |
+          rm -rf lsky-pro-${{github.event.inputs.tag}}.zip lsky-pro-${{github.event.inputs.tag}}
+          rm -rf .editorconfig .gitattributes .gitignore .styleci.yml composer.lock package-lock.json README.md tailwind.config.js webpack.mix.js
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: build & push images
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64, linux/arm64/v8
+          push: true
+#          labels: |
+#            build_version=tvscloud version:- ${{github.event.inputs.tag}} Build-date:- ${{steps.date.outputs.date}}
+          tags: |
+            tvscloud/lsky-pro-x:latest
