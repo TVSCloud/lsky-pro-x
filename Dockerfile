@@ -12,7 +12,6 @@ RUN set -ex; \
     pecl install redis; \
     docker-php-ext-install bcmath; \
     docker-php-ext-install pdo_pgsql; \
-    docker-php-ext-install pdo_mysql; \
     docker-php-ext-enable imagick; \
     docker-php-ext-enable redis; \
     apt-get clean; \
