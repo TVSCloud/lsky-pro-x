@@ -48,7 +48,7 @@ jobs:
 
       - name: Download and Unzip Upstream Source Code
         run: |
-          curl -OL https://github.com/lsky-org/lsky-pro/archive/refs/heads/master.zip
+          curl -OL https://github.com/lsky-org/lsky-pro/releases/download/${{github.event.inputs.tag}}/lsky-pro-${{github.event.inputs.tag}}.zip
           unzip -o *.zip
       - uses: shivammathur/setup-php@v2
         with:
