@@ -10,7 +10,7 @@ RUN set -ex; \
     apt-get install imagemagick libmagickwand-dev -y --no-install-recommends; \
     pecl install imagick; \
     docker-php-ext-install bcmath; \
-    docker-php-ext-install pdo_pgsql; \
+    docker-php-ext-install pdo_mysql; \
     docker-php-ext-enable imagick; \
     apt-get clean; \
     apt-mark auto '.*' > /dev/null; \
