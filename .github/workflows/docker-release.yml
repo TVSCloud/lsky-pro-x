@@ -78,7 +78,7 @@ jobs:
           platforms: linux/amd64, linux/arm64/v8, linux/arm/v7
           push: true
           labels: |
-            build_version=TyRoyal version:- ${{github.event.inputs.tag}} Build-date:- ${{steps.date.outputs.date}}
+            build_version=tvscloud version:- ${{github.event.inputs.tag}} Build-date:- ${{steps.date.outputs.date}}
           tags: |
             tvscloud/lsky-pro-x:${{ github.event.inputs.tag }}
             tvscloud/lsky-pro-x:latest
